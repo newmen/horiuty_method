@@ -6,7 +6,7 @@ require 'matrix'
 require 'set'
 
 # Заменяем дефолтный поток ввода на файл
-$stdin = File.open(File.dirname(__FILE__) + '/source.txt')
+$stdin = File.open(File.dirname(__FILE__) + '/examples/source.txt')
 # Зачем-то определяем глобальный поток вывода в файл результатов
 $output = File.open(File.dirname(__FILE__) + '/results.txt', 'w')
 $any_percent = 0.01
