@@ -1,12 +1,19 @@
+# Код описанный ниже является сугубо кривым, в плане реализации.
+# Он был написан мною, когда я плохо понимал силу Ruby.
+# Но, хоть код и написан плохо, он таки решает задачу Хориути
+
 require 'matrix'
 require 'set'
 
+# Заменяем дефолтный поток ввода на файл
 $stdin = File.open(File.dirname(__FILE__) + '/source.txt')
-$output = File.open(File.dirname(__FILE__) + '/results.txt', 'a')
+# Заменяем дефолтный поток вывода на файл
+$output = File.open(File.dirname(__FILE__) + '/results.txt', 'w')
 $any_percent = 0.01
-$range = 5
-$/ = "\n\n"
+$range = 5 # Отступ
+$/ = "\n\n" # Признак завершнеия ввода
 
+# Функция вывода одной строки матрицы. Если числа в строке - целые - они округляются
 def row_str(row)
   result = ''
   row.each do |x|
@@ -16,6 +23,7 @@ def row_str(row)
   result
 end
 
+# Функция вывода результирующих матриц
 def matrix_str(a, b = nil, spr = '|')
   a = a.to_a
   b = b.to_a
@@ -31,13 +39,7 @@ def matrix_str(a, b = nil, spr = '|')
   result
 end
 
-def source_matrix
-  matrix_str = gets.chomp.split('--').map { |s| s.strip }
-  b_nb = read_matrix(matrix_str[0])
-  b_b = read_matrix(matrix_str[1])
-  [b_nb, b_b]
-end
-
+# Преобразование текста, содержащего матрицу, в матрицу
 def read_matrix(str)
   matrix = str.split("\n")
   matrix.map! do |row_str|
@@ -51,6 +53,16 @@ def read_matrix(str)
   Matrix[*matrix]
 end
 
+# Чтение исходных матриц, где символом разделителем между матрицами является "--"
+def source_matrix
+  matrix_str = gets.chomp.split('--').map { |s| s.strip }
+  b_nb = read_matrix(matrix_str[0])
+  b_b = read_matrix(matrix_str[1])
+  [b_nb, b_b]
+end
+
+# Рекурсивная функция нахождения всех возможных вариантов сочетания элементов массива
+# аналог библиотечной функции Array::combination, в сочетании с описанным ниже методом all_variants
 def bust(from, to, arr, limit)
   variants = []
   for i in (from...to)
@@ -65,10 +77,12 @@ def bust(from, to, arr, limit)
   variants
 end
 
+# См. пояснение к предыдущему методу
 def all_variants(max, n)
   bust(0, max, [], n - 1)
 end
 
+# Исключает из матрицы указанные столбцы, и транспонирует матрицу
 def matrix_without_columns(matrix, column_indexes)
   columns = matrix.column_vectors
 #  column_indexes = [column_indexes].flatten
@@ -77,6 +91,7 @@ def matrix_without_columns(matrix, column_indexes)
   Matrix[*columns].t
 end
 
+# Исключает из матрицы все столбцы, кроме указанных, и транспонирует матрицу
 def matrix_with_columns(matrix, column_indexes)
   columns = matrix.column_vectors
   column_indexes.sort!
@@ -85,10 +100,13 @@ def matrix_with_columns(matrix, column_indexes)
   Matrix[*result].t
 end
 
+# Возвращает матрицу, у которой каждый элемент с противоположным знаком
 def matrix_minus(matrix)
   Matrix.build(matrix.row_size, matrix.column_size) { 0 } - matrix
 end
 
+# Составляет финальную матрицу, содержащую отброшенные строки, т.е. вставляет в полученную матрицу отброшенные строки
+# где каждая отброшенная (и теперь вставляемая) строка является строкой единичной матрицы
 def build_final_x(x, extra_column_indexes)
   ident = Matrix.identity(extra_column_indexes.size).to_a
   result = x.row_vectors
@@ -98,24 +116,29 @@ def build_final_x(x, extra_column_indexes)
   Matrix[*result]
 end
 
+# Функция нахождения всех решений
 def find_all_solutions(matrix)
   all_results = []
 
+  # определяем количество инвариантов
   z = matrix.row_size - matrix.rank
   ident = Matrix.identity(z)
 
+  # определяем инварианты индексов столбцов и строк исходной матрицы
   extra_columns_variants = all_variants(matrix.column_size, matrix.column_size - matrix.rank)
   inner_extra_columns_variants = all_variants(matrix.row_size, z)
-  total_variants = extra_columns_variants.size * inner_extra_columns_variants.size
-  step = 100.0 / total_variants
+  total_variants = extra_columns_variants.size * inner_extra_columns_variants.size # количество инвариантов
+  step = 100.0 / total_variants # для вывода завершённости расчёта (в процентах)
 
   puts "Total possible variants for replacing rows and columns: #{total_variants}"
 
   percent = 0
   prev_percent = 0
+  # по каждому инварианту столбцов
   extra_columns_variants.each do |extra_columns|
     bt = matrix_without_columns(matrix, extra_columns).t
 
+    # по каждому инварианту строк
     inner_extra_columns_variants.each do |inner_extra_columns|
       percent += step
       unless prev_percent == (percent / $any_percent).to_i
@@ -123,14 +146,17 @@ def find_all_solutions(matrix)
         prev_percent = (percent / $any_percent).to_i
       end
 
+      # выделяем матрицу, и находим её определитель
       bt1 = matrix_without_columns(bt, inner_extra_columns)
       next if bt1.det == 0
 
+      # определитель не равен нулю и поэтому производим "нехитрые" операции
       bt2 = matrix_with_columns(bt, inner_extra_columns)
       a = matrix_minus(bt2) * ident
       x = bt1.inverse * a
       final_x = build_final_x(x, inner_extra_columns)
 
+      # запоминаем полученный вариант во множестве всех вариантов
       all_results << final_x
     end
   end
@@ -138,6 +164,7 @@ def find_all_solutions(matrix)
   all_results
 end
 
+# Содержит ли матрица дробные элементы
 def consist_fractional?(matrix)
   matrix.to_a.each do |row|
     row.each do |num|
@@ -147,6 +174,7 @@ def consist_fractional?(matrix)
   false
 end
 
+# Отчищает мтожество решений от решений с дробными элементами
 def remote_fractional(set_of_results)
   arr_of_results = set_of_results.to_a
   (arr_of_results.size - 1).downto(0) do |i|
@@ -155,12 +183,14 @@ def remote_fractional(set_of_results)
   arr_of_results
 end
 
+# оОсновная функция
 def main
   sm = source_matrix
   b_nb = sm[0]
   b_b = sm[1]
   separator = '-' * (b_nb.column_size + b_b.column_size + 1) * $range + "\n"
 
+  # формируем строку, для вывода в выходной файл
   src_matrix_str = "Source matrix:\n"
   src_matrix_str << separator
   src_matrix_str << matrix_str(b_nb, b_b)
@@ -171,18 +201,24 @@ def main
   $output.write(src_matrix_str)
 
   result_str = ''
+  # проверяем, возможны ли инварианты
   if b_b.rank < b_b.column_size
+    # находим решения
     all_solutions = find_all_solutions(b_b)
     puts "Was found #{all_solutions.size} possible solutions"
+    # убираем повторяющиеся
     results = Set.new(all_solutions)
     puts "and only #{results.size} different solutions"
+    # убираем с дробными элементами
     results = remote_fractional(results)
     puts "and #{results.size} solutions without fractional"
     result_str << "Results of calculations: #{results.size}\n\n"
+    # выводим то что осталось в выходной файл
     results.each do |x_result|
       final_result = b_nb.t * x_result
       result_str << matrix_str(x_result, final_result, '>>')
       unless x_result == results.last
+        # рисуем красивую "клюшку" в виде тирешек
         result_str << '-' * (x_result.column_size + final_result.column_size + 1) * $range + "\n"
       end
     end
