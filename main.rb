@@ -7,7 +7,7 @@ require 'set'
 
 # Заменяем дефолтный поток ввода на файл
 $stdin = File.open(File.dirname(__FILE__) + '/source.txt')
-# Заменяем дефолтный поток вывода на файл
+# Зачем-то определяем глобальный поток вывода в файл результатов
 $output = File.open(File.dirname(__FILE__) + '/results.txt', 'w')
 $any_percent = 0.01
 $range = 5 # Отступ
@@ -183,12 +183,14 @@ def remote_fractional(set_of_results)
   arr_of_results
 end
 
+def tireSeparator(length)
+  '-' * (length + 1) * $range + "\n"
+end
+
 # оОсновная функция
 def main
-  sm = source_matrix
-  b_nb = sm[0]
-  b_b = sm[1]
-  separator = '-' * (b_nb.column_size + b_b.column_size + 1) * $range + "\n"
+  b_nb, b_b = source_matrix
+  separator = tireSeparator(b_nb.column_size + b_b.column_size)
 
   # формируем строку, для вывода в выходной файл
   src_matrix_str = "Source matrix:\n"
@@ -215,12 +217,12 @@ def main
     result_str << "Results of calculations: #{results.size}\n\n"
     # выводим то что осталось в выходной файл
     results.each do |x_result|
+      # здесь x_result - матрица "ню" из теории
+      #       final_result - матрица "B" из теории
       final_result = b_nb.t * x_result
       result_str << matrix_str(x_result, final_result, '>>')
-      unless x_result == results.last
-        # рисуем красивую "клюшку" в виде тирешек
-        result_str << '-' * (x_result.column_size + final_result.column_size + 1) * $range + "\n"
-      end
+      # рисуем красивую "клюшку" в виде тирешек
+      result_str << tireSeparator(x_result.column_size + final_result.column_size)
     end
   else
     msg = "The rank of source Bodenshtain matrix equals the number of columns\n"
