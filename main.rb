@@ -55,10 +55,13 @@ end
 
 # Чтение исходных матриц, где символом разделителем между матрицами является "--"
 def source_matrix
-  matrix_str = gets.chomp.split('--').map { |s| s.strip }
+  split_and_strip = lambda { |str, sep| str.split(sep).map { |s| s.strip } }
+  matrix_str = split_and_strip.call(gets.chomp, '--')
   b_nb = read_matrix(matrix_str[0])
-  b_b = read_matrix(matrix_str[1])
-  [b_nb, b_b]
+  bb_matrix_and_rates = split_and_strip.call(matrix_str[1], '~~')
+  b_b = read_matrix(bb_matrix_and_rates[0])
+  rates = bb_matrix_and_rates[1].split("\n").map { |is_slow| is_slow.to_i }
+  [b_nb, b_b, rates]
 end
 
 # Рекурсивная функция нахождения всех возможных вариантов сочетания элементов массива
@@ -183,13 +186,13 @@ def remote_fractional(set_of_results)
   arr_of_results
 end
 
-def tireSeparator(length)
-  '-' * (length + 1) * $range + "\n"
+def tireSeparator(length, char = '-')
+  char * (length + 1) * $range + "\n"
 end
 
 # оОсновная функция
 def main
-  b_nb, b_b = source_matrix
+  b_nb, b_b, rates = source_matrix
   separator = tireSeparator(b_nb.column_size + b_b.column_size)
 
   # формируем строку, для вывода в выходной файл
@@ -220,9 +223,41 @@ def main
       # здесь x_result - матрица "ню" из теории
       #       final_result - матрица "B" из теории
       final_result = b_nb.t * x_result
-      result_str << matrix_str(x_result, final_result, '>>')
-      # рисуем красивую "клюшку" в виде тирешек
-      result_str << tireSeparator(x_result.column_size + final_result.column_size)
+      result_str << matrix_str(x_result, final_result, '><')
+      # лямбда рисования разделителя
+      separator_lambda = lambda { |char| tireSeparator(x_result.column_size + final_result.column_size, char) }
+
+      # >>> НОВОЕ
+      # рисуем разделитель
+      result_str << separator_lambda.call('~')
+      # находим сумму элементов столбцов результирующей матрицы "B", для дальнейшей проверки
+      r_b = final_result.column_vectors.map do |vec|
+        vec.inject(0) { |sum, x| sum + x } 
+      end
+      # выбираем из матрицы "ню" только те строки, которые обозначены как медленные
+      x_result.row_vectors.each_with_index do |r_vector, i|
+        next if rates[i] == 0 # если реакция быстрая - пропускаем
+        # дальше наводим красоту
+        beauty_r_str = ''
+        r_vector.each_with_index do |r, j|
+          # если соответствующий коэффициент в матрице "ню" равен нулю
+          # или соответствующий столбец результирующей матрицы "B" нулевой - пропускаем
+          next if r == 0 || r_b[j] == 0
+          # непосредственно красота
+          r = r.to_i
+          beauty_r_str << '+' if beauty_r_str.length > 0 && r > 0
+          if r.abs == 1
+            beauty_r_str << r.to_s.sub('1', 'r')
+          else
+            beauty_r_str << "#{r.to_s}*r"
+          end
+          beauty_r_str << "(#{j + 1})"
+        end
+        result_str << "W(#{i + 1}) = #{beauty_r_str}\n" if beauty_r_str.length > 0
+      end
+      # <<< НОВОЕ
+
+      result_str << separator_lambda.call('-')
     end
   else
     msg = "The rank of source Bodenshtain matrix equals the number of columns\n"
